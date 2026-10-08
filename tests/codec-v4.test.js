@@ -55,3 +55,17 @@ test('backend creates Unicode site domain and redirects',async()=>{
  const response=await onRequestGet({params:{slug:data.path},request:new Request(data.url),next:()=>new Response('pass')});
  assert.equal(response.status,302);assert.equal(response.headers.get('Location'),'https://example.com/');
 });
+
+test('previously-issued v4 links survive new Huffman URL modes',async()=>{
+ const old='교육의내일이금강과협력을기리고문화가사진을잇다';
+ assert.equal(await decodeURLv4(old),'https://example.com/');
+});
+test('compressed ordinary URLs roundtrip across multiple encoding modes',async()=>{
+ const urls=[
+  'https://github.com/user/project/blob/main/README.md',
+  'https://example.com/?t='+encodeURIComponent('우리말과한글날'.repeat(40)),
+  'https://some-domain.dev/abc123/hello-world?q=aBcD_123',
+  'https://abc.net/a?x=1&y=2&z=3&hello=world',
+ ];
+ for(const url of urls){const code=await encodeURLv4(url);assert.equal(await decodeURLv4(code),new URL(url).href);}
+});

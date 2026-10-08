@@ -1,6 +1,7 @@
 import {nounsV3} from './words-v3.js';
 import {choices,locate,themeWord,nounWord,themeId,nounId,THEMES_ORDER} from './semantic-graph.js';
 import {unicodeHostname} from './idn.js';
+import {createURLHuffman} from './url-huffman.js';
 
 // Immutable v4: graph-relative selection preserves information, while choosing
 // connected semantic neighbours. v1, v2 and v3 decoders stay on the server.
@@ -35,6 +36,7 @@ const TOKENS = [
 ];
 if(TOKENS.length>127||new Set(TOKENS).size!==TOKENS.length)throw Error('URL 압축 사전 손상');
 const MATCH_TOKENS = TOKENS.map((s,i)=>[s,i+1]).sort((a,b)=>b[0].length-a[0].length);
+const HUFFMAN=createURLHuffman(TOKENS);
 const MAX_URL_BYTES=4096,MAX_SLUG=25000,BASE=1n<<36n,MASK=255n;
 const HOSTS=[
  'example.com','github.com','www.github.com','www.google.com','google.com',
@@ -235,12 +237,14 @@ export async function encodeURLv4(value){
  const https=original.startsWith('https://');
  const body=shortenedBody(original),plain=enc.encode(body);
  const options=[{format:0,data:plain}];
+ const hf=HUFFMAN.encode(body);if(hf)options.push({format:8,data:hf});
  const parsed=new URL(original),host=unicodeHostname(parsed.hostname)+(parsed.port?':'+parsed.port:'');
  const hostId=HOSTS.indexOf(host);
  if(hostId>=0){
   let path=body.slice(host.length);
   if(path==='/')path='';
   const rawPath=enc.encode(path);
+  const hp=HUFFMAN.encode(path);if(hp)options.push({format:9,data:Uint8Array.from([hostId,...hp])});
   options.push({format:6,data:Uint8Array.from([hostId,...rawPath])});
   const hostToken=tokenEncode(path);if(hostToken)options.push({format:4,data:Uint8Array.from([hostId,...hostToken])});
   const hostSix=sixEncode(path);if(hostSix)options.push({format:5,data:Uint8Array.from([hostId,...hostSix])});
@@ -251,7 +255,7 @@ export async function encodeURLv4(value){
  if(plain.length>=36){const zipped=await compress(plain);if(zipped)options.push({format:3,data:zipped});}
  const best=options.reduce((a,b)=>b.data.length<a.data.length?b:a);
  const frame=new Uint8Array(best.data.length+5);
- frame[0]=0xd0+(https?0:1)+(best.format<<1);
+ frame[0]=0xe0+(https?0:1)+(best.format<<1);
  frame.set(best.data,1);
  const check=crc32(raw);
  frame.set([check>>>24,(check>>>16)&255,(check>>>8)&255,check&255],best.data.length+1);
@@ -282,11 +286,16 @@ export async function decodeURLv4(slug){
  if(!done||pos!==slug.length)throw Error('문장의 끝이 올바르지 않습니다.');
  let n=0n;for(let i=digits.length-1;i>=0;i--)n=(n<<36n)|digits[i];
  const frame=bigintToBytes(n);
- if(frame.length<6||frame[0]<0xd0||frame[0]>0xdf)throw Error('지원하지 않는 주소 버전입니다.');
- const flag=frame[0]-0xd0,http=!!(flag&1),format=flag>>1;
+ if(frame.length<6||((frame[0]<0xd0||frame[0]>0xdf)&&(frame[0]<0xe0||frame[0]>0xf3)))throw Error('지원하지 않는 주소 버전입니다.');
+ const flag=frame[0]-(frame[0]>=0xe0?0xe0:0xd0),http=!!(flag&1),format=flag>>1;
  let body=frame.slice(1,-4);
  if(body.length>MAX_URL_BYTES*2)throw Error('주소가 너무 깁니다.');
- if(format===1)body=tokenDecode(body);
+ if(format===8)body=enc.encode(HUFFMAN.decode(body));
+ else if(format===9){
+  if(body.length<1||body[0]>=HOSTS.length)throw Error('주소 호스트 코드 손상');
+  body=enc.encode(HOSTS[body[0]]+(HUFFMAN.decode(body.slice(1))||'/'));
+ }
+ else if(format===1)body=tokenDecode(body);
  else if(format===2)body=sixDecode(body);
  else if(format===3)body=await decompress(body);
  else if(format>=4&&format<=7){
