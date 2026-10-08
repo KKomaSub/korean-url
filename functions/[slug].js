@@ -1,6 +1,7 @@
 import {decodeURL} from '../src/codec-v2.js';
 export async function onRequestGet({params,request,next}){
- const slug=params.slug;
+ let slug=params.slug;
+ try{slug=decodeURIComponent(slug);}catch{return next();}
  // Allow static assets (favicon, etc.) to pass through to Pages.
  if(!/^[가-힣]+$/.test(slug))return next();
  try{
