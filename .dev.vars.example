@@ -1,0 +1,8 @@
+# Local-only. Do not commit actual secrets.
+GEMINI_API_KEYS="KEY_1,KEY_2,KEY_3"
+GEMINI_MODEL="gemini-2.5-flash-lite"
+GEMINI_DAILY_PER_IP="5"
+IP_HASH_SALT="CHANGE_TO_A_RANDOM_SECRET_AT_LEAST_12_CHARACTERS"
+QUOTA_TIMEZONE="Asia/Seoul"
+# Optional official Korean dictionary key:
+KOREAN_DICT_API_KEY=""
