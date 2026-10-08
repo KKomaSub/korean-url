@@ -59,7 +59,7 @@ aiButton.addEventListener('click',async()=>{
   setQuota(d);
   if(d.source==='gemini'){
    meaningCopy.textContent=d.meaning;meaningOrigin.textContent=d.cached?'저장된 AI 뜻풀이':'Gemini AI 뜻풀이';
-   meaningNote.textContent='변환한 한글 문장에 대한 문학적 해석입니다. 원본 URL은 Gemini로 보내지 않습니다.';
+   meaningNote.textContent='AI가 요약한 URL의 뜻풀이입니다.';
   }else{meaningNote.textContent='AI를 사용하지 않은 규칙 기반 뜻풀이입니다. '+(apiReason[d.reason]||'잠시 후 다시 시도해 주세요.');}
  }catch{if(session===serial){meaningNote.textContent='AI 연결에 실패했습니다. 규칙 기반 뜻풀이가 유지됩니다.';aiButton.disabled=false;}}
  finally{if(session===serial)aiButton.textContent='AI 뜻풀이';}

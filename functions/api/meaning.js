@@ -36,7 +36,7 @@ export async function onRequestPost({request,env}){
  if(quota.remaining===0)return local('daily_limit',quota);
  if(!apiKeys(env.GEMINI_API_KEYS||env.GEMINI_API_KEY).length)return local('keys_not_configured',quota);
  try{
-  const id=await sha256('meaning:v1:'+slug),cached=await getCache(db,id);
+  const id=await sha256('meaning:v2:'+slug),cached=await getCache(db,id);
   if(cached)return json({ok:true,meaning:cached.interpretation,source:'gemini',cached:true,model:cached.model,quota,aiAvailable:true});
   if(!await lockMeaning(db,id)){
    for(let i=0;i<9;i++){

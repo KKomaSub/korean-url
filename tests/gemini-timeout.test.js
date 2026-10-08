@@ -46,10 +46,10 @@ test('prompt is bounded and output uses minimal thinking with a strict token lim
  const slug=await encodeURLv4('https://example.com/');
  const prompt=geminiPrompt(slug);
  assert.ok(prompt.includes(slug));
- assert.match(prompt,/60~120자/);
+ assert.match(prompt,/100~170자/);
  assert.ok(prompt.length<1000);
  const cfg=geminiGenerationConfig('gemini-3.5-flash-lite');
- assert.equal(cfg.maxOutputTokens,320);
+ assert.equal(cfg.maxOutputTokens,448);
  assert.deepEqual(cfg.thinkingConfig,{thinkingLevel:'minimal'});
  assert.equal(geminiGenerationConfig('gemini-2.5-flash-lite').thinkingConfig,undefined);
  assert.equal(geminiGenerationConfig('gemini-3.5-flash-lite',{GEMINI_MAX_OUTPUT_TOKENS:999999}).maxOutputTokens,512);
@@ -64,7 +64,7 @@ test('attempts have increased abort timeout, lower token output and JSON mode',a
  });
  assert.equal(result.text,msg);
  assert.equal(calls.length,1);
- assert.equal(calls[0].body.generationConfig.maxOutputTokens,320);
+ assert.equal(calls[0].body.generationConfig.maxOutputTokens,448);
  assert.equal(calls[0].body.generationConfig.thinkingConfig.thinkingLevel,'minimal');
  assert.equal(calls[0].signal.aborted,false);
 });

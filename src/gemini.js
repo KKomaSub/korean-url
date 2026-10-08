@@ -21,7 +21,7 @@ export function isAiEligible(slug,originalURL,env={}){
 export function geminiPrompt(slug){
  const {items}=readMotifs(slug);
  const samples=items.length?items.slice(0,3).map(x=>`${x.theme}, ${x.subject}, ${x.object} (${x.action})`).join('; '):'문장에 등장하는 주제와 표현';
- return `한글 문장에 담긴 이미지와 상징을 짧게 해석하세요. 실제 역사적 사실이나 숨겨진 암호가 있다고 주장하지 마세요.\n문장에 있는 단어와 동작을 구체적으로 연결하여 서로 다른 URL마다 다른 뜻풀이를 만드세요. 한국어 1~2문장, 합계 60~120자만 쓰고 반복·서론·장황한 설명을 금지합니다. 반드시 짧게 끝내세요.\n문장: ${slug}\n참고 낱말: ${samples}\nJSON만 답하세요: {"meaning":"풀이"}`;
+ return `한글 문장에 담긴 이미지와 상징을 짧게 해석하세요. 실제 역사적 사실이나 숨겨진 암호가 있다고 주장하지 마세요.\n문장에 있는 단어와 동작을 구체적으로 연결하여 URL마다 고유한 뜻풀이를 만드세요. 한국어 2~3문장, 합계 100~170자로 작성하세요. 먼저 문장의 핵심 이미지를 풀이하고, 다음에는 등장한 낱말들이 어떻게 연결되는지 자연스럽게 설명하세요. 반복·서론·근거 없는 역사적 단정은 피하세요.\n문장: ${slug}\n참고 낱말: ${samples}\nJSON만 답하세요: {"meaning":"풀이"}`;
 }
 export function parseGeminiResponse(response){
  const candidate=response?.candidates?.[0];
@@ -37,7 +37,7 @@ export function parseGeminiResponse(response){
 const ALLOWED_MODEL=/^gemini-[a-z0-9.-]{1,65}$/i;
 export function geminiGenerationConfig(model,env={}){
  const config={
-  maxOutputTokens:intSetting(env.GEMINI_MAX_OUTPUT_TOKENS,320,128,512),
+  maxOutputTokens:intSetting(env.GEMINI_MAX_OUTPUT_TOKENS,448,128,512),
   responseMimeType:'application/json'
  };
  // Gemini 3.x supports thinkingLevel; Gemini 2.x does not.
