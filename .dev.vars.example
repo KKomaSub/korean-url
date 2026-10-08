@@ -1,8 +1,9 @@
-# Local-only. Do not commit actual secrets.
+# Set these as secrets/vars in your Cloudflare Pages project. Never commit actual keys.
 GEMINI_API_KEYS="KEY_1,KEY_2,KEY_3"
-GEMINI_MODEL="gemini-2.5-flash-lite"
-GEMINI_DAILY_PER_IP="5"
-IP_HASH_SALT="CHANGE_TO_A_RANDOM_SECRET_AT_LEAST_12_CHARACTERS"
+# New Google projects may not be allowed to call the older 2.5 model.
+GEMINI_MODEL="gemini-3.5-flash-lite"
+GEMINI_DAILY_PER_DEVICE="5"
+FINGERPRINT_HASH_SALT="CHANGE_TO_A_RANDOM_SECRET_AT_LEAST_12_CHARACTERS"
 QUOTA_TIMEZONE="Asia/Seoul"
-# Optional official Korean dictionary key:
+# Optional official Korean dictionary API key:
 KOREAN_DICT_API_KEY=""
