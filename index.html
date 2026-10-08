@@ -20,11 +20,17 @@ async function deviceFingerprint(){
   return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
  })();return deviceHashPromise;
 }
-const apiReason={no_database:'D1 데이터베이스가 연결되지 않았습니다.',database_schema_error:'D1에 기기별 사용량 마이그레이션이 필요합니다.',device_unavailable:'기기 식별 환경변수나 브라우저 식별값을 확인해 주세요.',daily_limit:'오늘 이 브라우저의 AI 뜻풀이 횟수를 모두 사용했습니다.',no_keys:'Gemini API 키가 설정되지 않았습니다.',keys_not_configured:'Gemini API 키가 설정되지 않았습니다.',model_unavailable:'선택한 Gemini 모델에 접근할 수 없습니다. GEMINI_MODEL을 확인해 주세요.',rate_limited:'설정한 API 키의 Gemini 요청 한도가 초과되었습니다.',key_rejected:'Gemini API 키 권한과 사용 설정을 확인해 주세요.',invalid_response:'Gemini가 유효한 뜻풀이를 반환하지 않았습니다.',timeout:'Gemini 응답이 지연되어 규칙 기반 풀이를 유지합니다.',all_keys_failed:'설정한 Gemini API 키로 호출하지 못했습니다. 모델 및 할당량을 확인해 주세요.',temporary_error:'일시적인 오류로 규칙 기반 풀이를 유지합니다.',being_generated:'동일한 문장의 뜻풀이를 생성하는 중입니다.'};
+const apiReason={no_database:'D1 데이터베이스가 연결되지 않았습니다.',database_schema_error:'D1에 기기별 사용량 마이그레이션이 필요합니다.',device_unavailable:'기기 식별 환경변수나 브라우저 식별값을 확인해 주세요.',daily_limit:'오늘 이 브라우저의 AI 뜻풀이 횟수를 모두 사용했습니다.',no_keys:'Gemini API 키가 설정되지 않았습니다.',keys_not_configured:'Gemini API 키가 설정되지 않았습니다.',model_unavailable:'선택한 Gemini 모델에 접근할 수 없습니다. GEMINI_MODEL을 확인해 주세요.',rate_limited:'설정한 API 키의 Gemini 요청 한도가 초과되었습니다.',key_rejected:'Gemini API 키 권한과 사용 설정을 확인해 주세요.',invalid_response:'Gemini가 올바른 풀이를 반환하지 않았습니다.',output_limit:'Gemini 응답이 길이 제한에 도달했습니다. 다시 시도해 주세요.',invalid_request:'Gemini 요청 형식 또는 모델 설정을 확인해 주세요.',network_error:'Gemini 서버로 연결할 수 없습니다. Cloudflare 네트워크 상태를 확인해 주세요.',ai_url_too_long:'주소가 길어 AI 뜻풀이를 사용할 수 없습니다. 규칙 기반 풀이만 제공합니다.',timeout:'Gemini 응답이 지연되어 규칙 기반 풀이를 유지합니다.',all_keys_failed:'설정한 Gemini API 키로 호출하지 못했습니다. 모델 및 할당량을 확인해 주세요.',temporary_error:'일시적인 오류로 규칙 기반 풀이를 유지합니다.',being_generated:'동일한 문장의 뜻풀이를 생성하는 중입니다.'};
 function setQuota(d){
  const q=d?.quota;aiButton.disabled=!d?.aiAvailable;
- aiQuota.textContent=q?`오늘 AI 뜻풀이 ${q.remaining}/${q.limit}회 남음`:(apiReason[d?.reason]||'');
- if(q&&q.remaining===0)aiQuota.textContent='오늘 AI 뜻풀이 횟수를 모두 사용했습니다.';
+ if(d?.reason==='ai_url_too_long'){
+  aiQuota.textContent=apiReason.ai_url_too_long;
+  aiButton.title='긴 주소는 AI 풀이를 지원하지 않습니다.';
+ }else{
+  aiButton.title='';
+  aiQuota.textContent=q?`오늘 AI 뜻풀이 ${q.remaining}/${q.limit}회 남음`:(apiReason[d?.reason]||'');
+  if(q&&q.remaining===0)aiQuota.textContent='오늘 AI 뜻풀이 횟수를 모두 사용했습니다.';
+ }
 }
 async function meaningRequest(path,mode){
  return fetch('/api/meaning',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({path,mode,fingerprint:await deviceFingerprint()})})
@@ -41,6 +47,7 @@ form.addEventListener('submit',async e=>{
   aiButton.disabled=true;aiQuota.textContent='남은 횟수 확인 중…';
   try{const d=await meaningRequest(data.path,'local');if(session!==serial)return;
    meaningCopy.textContent=d.meaning;setQuota(d);
+   if(d.reason==='ai_url_too_long')meaningNote.textContent='AI를 사용하지 않은 규칙 기반 뜻풀이입니다. 긴 URL은 AI 뜻풀이를 지원하지 않습니다.';
   }catch{if(session===serial){meaningCopy.textContent='규칙 기반 풀이를 불러올 수 없습니다.';aiButton.disabled=true;aiQuota.textContent='서버 연결을 확인해 주세요.';}}
  }catch(err){if(session===serial)error.textContent=err.message||'잠시 후 다시 시도해 주세요.';}
  finally{if(session===serial){submit.disabled=false;submit.textContent='글길 만들기 →';}}

@@ -34,5 +34,5 @@ export async function markOutage(db,day,device){return db.prepare(`INSERT INTO d
  ON CONFLICT(day,device_hash) DO UPDATE SET outage=1`).bind(day,device).run();}
 // The original global api_state block is intentionally no longer consulted: it locked out *all* healthy keys.
 export async function lockMeaning(db,id){const result=await db.prepare(`INSERT INTO meaning_locks(id,expires_at) VALUES(?,?) ON CONFLICT(id)
- DO UPDATE SET expires_at=excluded.expires_at WHERE meaning_locks.expires_at<? RETURNING id`).bind(id,Date.now()+65000,Date.now()).first();return !!result;}
+ DO UPDATE SET expires_at=excluded.expires_at WHERE meaning_locks.expires_at<? RETURNING id`).bind(id,Date.now()+180000,Date.now()).first();return !!result;}
 export async function unlockMeaning(db,id){return db.prepare('DELETE FROM meaning_locks WHERE id=?').bind(id).run();}

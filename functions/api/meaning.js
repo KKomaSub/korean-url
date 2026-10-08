@@ -2,7 +2,7 @@ import {decodeURLv4} from '../../src/codec-v4.js';
 import {decodeURLv3} from '../../src/codec-v3.js';
 import {decodeURL as decodeURLv2} from '../../src/codec-v2.js';
 import {fallbackMeaning} from '../../src/meaning.js';
-import {askGemini,apiKeys} from '../../src/gemini.js';
+import {askGemini,apiKeys,isAiEligible} from '../../src/gemini.js';
 import {dateKey,sha256,visitorHash,getCache,putCache,getQuota,reserveQuota,refundQuota,markOutage,lockMeaning,unlockMeaning} from '../../src/meaning-storage.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -20,17 +20,19 @@ export async function onRequestPost({request,env}){
  }catch{return json({ok:false,error:'INVALID_JSON'},400);}
  const slug=data?.path,mode=data?.mode==='ai'?'ai':'local';
  if(typeof slug!=='string'||slug.length>14000||slug.length<2||!/^[가-힣]+$/.test(slug))return json({ok:false,error:'INVALID_PATH'},400);
- try{await verifiedPath(slug);}catch{return json({ok:false,error:'INVALID_PATH'},400);}
+ let originalURL;try{originalURL=await verifiedPath(slug);}catch{return json({ok:false,error:'INVALID_PATH'},400);}
+ const tooLong=!isAiEligible(slug,originalURL,env);
  const fallback=fallbackMeaning(slug);
- const local=(reason,quota=null)=>json({ok:true,meaning:fallback,source:'local',cached:false,reason,quota,aiAvailable:!!(quota?.remaining>0&&apiKeys(env?.GEMINI_API_KEYS||env?.GEMINI_API_KEY).length)});
+ const local=(reason,quota=null)=>json({ok:true,meaning:fallback,source:'local',cached:false,reason,quota,aiAvailable:!tooLong&&!!(quota?.remaining>0&&apiKeys(env?.GEMINI_API_KEYS||env?.GEMINI_API_KEY).length)});
  const db=env?.MEANING_DB;
- if(!db)return local('no_database');
+ if(!db)return local(tooLong?'ai_url_too_long':'no_database');
  const device=await visitorHash(data?.fingerprint,env);
- if(!device)return local('device_unavailable');
+ if(!device)return local(tooLong?'ai_url_too_long':'device_unavailable');
  const day=dateKey(Date.now(),env.QUOTA_TIMEZONE||'Asia/Seoul');
  let quota;
  try{quota=await getQuota(db,day,device,env);}catch{return local('database_schema_error');}
- if(mode==='local')return local('rules',quota); // The browser never spends a Gemini call on form submission.
+ if(mode==='local')return local(tooLong?'ai_url_too_long':'rules',quota); // The browser never spends a Gemini call on form submission.
+ if(tooLong)return local('ai_url_too_long',quota);
  if(quota.remaining===0)return local('daily_limit',quota);
  if(!apiKeys(env.GEMINI_API_KEYS||env.GEMINI_API_KEY).length)return local('keys_not_configured',quota);
  try{
