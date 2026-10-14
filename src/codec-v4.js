@@ -316,3 +316,5 @@ export async function decodeURLv4(slug){
  if(crc32(raw)!==crc)throw Error('주소 무결성 검증 실패');
  return canonical;
 }
+// The existing normalization is reused without changing the v4 codec.
+export {normalizeURL as normalizeInputURL};

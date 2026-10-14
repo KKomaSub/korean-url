@@ -7,7 +7,7 @@ import {encodeURLv3,decodeURLv3} from '../src/codec-v3.js';
 
 const site='https://글길.한국';
 async function post(input){
- const request=new Request(site+'/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:input})});
+ const request=new Request(site+'/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:input,mode:'normal'})});
  return onRequestPost({request});
 }
 async function get(slug){

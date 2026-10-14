@@ -48,7 +48,7 @@ test('older v2/v3 links remain decodable',async()=>{
  assert.equal(await decodeURLv3(await encodeURLv3(old)),old);
 });
 test('backend creates Unicode site domain and redirects',async()=>{
- const request=new Request('https://xn--bj0bv3c9z6c.xn--3e0b707e/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:'https://example.com/'})});
+ const request=new Request('https://xn--bj0bv3c9z6c.xn--3e0b707e/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:'https://example.com/',mode:'normal'})});
  const r=await onRequestPost({request});assert.equal(r.status,200);
  const data=await r.json();assert.match(data.path,/^[가-힣]+$/);
  assert.ok(data.url.startsWith('https://한글날.한국/'));
