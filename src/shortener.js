@@ -13,14 +13,39 @@ export function validateShortLinkResponse(data){
  }
  return parsed.href;
 }
-export async function shortenOriginalURL(original,fetchImpl=fetch,timeoutMs=8500){
+const REDIRECT_CODES=new Set([301,302,307,308]);
+const MAX_REDIRECTS=2;
+function validatedEndpointRedirect(value,base){
+ let target;
+ try{target=new URL(value,base);}catch{}
+ if(!target||target.protocol!=='https:'||target.hostname!=='rul.kr'||target.port||target.username||target.password||target.search||target.hash||!['/create','/create/'].includes(target.pathname)){
+  throw new ShortenerError('단축 서비스가 허용되지 않은 경로로 이동을 요청했습니다.','invalid_redirect',502);
+ }
+ return target.href;
+}
+
+export async function shortenOriginalURL(original,fetchImpl=fetch,timeoutMs=15000){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+ const body=JSON.stringify({url:original,type:'public'});
+ let endpoint=ENDPOINT;
  try{
-  const response=await fetchImpl(ENDPOINT,{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({url:original,type:'public'}),signal:controller.signal,redirect:'error'});
-  if(response.status===429)throw new ShortenerError('짧은 링크 요청이 많습니다. 잠시 후 다시 시도해 주세요.','rate_limited',503);
-  if(!response.ok)throw new ShortenerError('짧은 링크를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.','upstream_error',502);
-  let data;try{data=await response.json();}catch{throw new ShortenerError('단축 서비스 응답을 읽을 수 없습니다.','invalid_json',502);}
-  return validateShortLinkResponse(data);
+  for(let redirects=0;redirects<=MAX_REDIRECTS;redirects++){
+   // Cloudflare workerd rejects redirect:'error' even when the upstream does not redirect.
+   const response=await fetchImpl(endpoint,{
+    method:'POST',headers:{'content-type':'application/json','accept':'application/json'},
+    body,signal:controller.signal,redirect:'manual'
+   });
+   if(REDIRECT_CODES.has(response.status)){
+    if(redirects===MAX_REDIRECTS)throw new ShortenerError('단축 서비스의 경로 이동이 반복됩니다.','too_many_redirects',502);
+    endpoint=validatedEndpointRedirect(response.headers?.get('location'),endpoint);
+    continue;
+   }
+   if(response.status>=300&&response.status<400)throw new ShortenerError('단축 서비스의 응답 경로를 확인할 수 없습니다.','upstream_redirect',502);
+   if(response.status===429)throw new ShortenerError('짧은 링크 요청이 많습니다. 잠시 후 다시 시도해 주세요.','rate_limited',503);
+   if(!response.ok)throw new ShortenerError('짧은 링크를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.','upstream_error',502);
+   let data;try{data=await response.json();}catch{throw new ShortenerError('단축 서비스 응답을 읽을 수 없습니다.','invalid_json',502);}
+   return validateShortLinkResponse(data);
+  }
  }catch(e){
   if(e instanceof ShortenerError)throw e;
   if(controller.signal.aborted||e?.name==='AbortError')throw new ShortenerError('짧은 링크 연결이 지연되고 있습니다. 다시 시도해 주세요.','timeout',504);
