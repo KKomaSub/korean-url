@@ -104,7 +104,7 @@ test('code mismatch is recovered only after confirmed public stats',async t=>{
   if(url==='https://rul.kr/api/stats/Code9')return {ok:true,status:200,json:async()=>({short_code:'Code9',type:'public'})};
   throw Error('unexpected request');
  });
- const r=await onRequestPost({request:inputRequest('https://example.com/','short')});
+ const r=await onRequestPost({request:request('https://example.com/','short')});
  assert.equal(r.status,200);
  assert.equal(await decodeURLv4((await r.json()).path),'https://rul.kr/Code9');
  assert.equal(calls.length,2);assert.equal(calls[1][1].method,'GET');
@@ -113,7 +113,7 @@ test('code mismatch is recovered only after confirmed public stats',async t=>{
 test('provider mismatches report safe shape when stats cannot verify',async t=>{
  t.mock.method(globalThis,'fetch',async url=>url.includes('/api/stats/')?
   {ok:false,status:404}:{ok:true,status:201,json:async()=>({success:true,short_code:'Code9',short_url:'https://rul.kr/Other8',type:'public'})});
- const r=await onRequestPost({request:inputRequest('https://example.com/private?token=secret','short')});
+ const r=await onRequestPost({request:request('https://example.com/private?token=secret','short')});
  const d=await r.json();
  assert.equal(d.code,'invalid_response');assert.equal(d.diagnostics.linkCodeMatches,false);
  assert.equal(d.diagnostics.linkIsRulHost,true);
