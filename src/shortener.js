@@ -1,18 +1,50 @@
 // Public URL shortener API described in the provided rul.kr documentation.
 const ENDPOINT='https://rul.kr/create';
-const CODE_PATTERN=/^[A-Za-z0-9_-]{4,128}$/;
+// Four-character minimum in API docs only applies to user-specified custom_code.
+const CODE_PATTERN=/^[A-Za-z0-9_-]{1,128}$/;
 export class ShortenerError extends Error{
- constructor(message,reason,status){super(message);this.name='ShortenerError';this.reason=reason;this.status=status;}
+ constructor(message,reason,status=502,diagnostics){super(message);this.name='ShortenerError';this.reason=reason;this.status=status;this.diagnostics=diagnostics;}
 }
-export function validateShortLinkResponse(data){
- if(!data||data.success!==true||typeof data.short_url!=='string')throw new ShortenerError('단축 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요.','invalid_response',502);
- let parsed;try{parsed=new URL(data.short_url);}catch{throw new ShortenerError('단축 서비스가 올바른 주소를 반환하지 않았습니다.','invalid_response',502);}
- const code=parsed.pathname.slice(1);
- if(parsed.protocol!=='https:'||parsed.hostname!=='rul.kr'||parsed.port||parsed.username||parsed.password||parsed.search||parsed.hash||!CODE_PATTERN.test(code)||(typeof data.short_code==='string'&&data.short_code!==code)){
-  throw new ShortenerError('단축 서비스가 올바른 주소를 반환하지 않았습니다.','invalid_response',502);
+
+function safeShape(data){
+ const object=data!==null&&typeof data==='object'&&!Array.isArray(data);
+ return {responseType:Array.isArray(data)?'array':data===null?'null':typeof data,
+  fields:object?Object.keys(data).slice(0,12).map(x=>x.slice(0,32)):[]};
+}
+function trustedShortURL(value){
+ if(typeof value!=='string')return null;
+ let url;try{url=new URL(value.trim());}catch{return null;}
+ if(url.protocol!=='https:'||url.hostname!=='rul.kr'||url.port||url.username||
+    url.password||url.search||url.hash||url.pathname.split('/').length!==2)return null;
+ const code=url.pathname.slice(1);
+ return CODE_PATTERN.test(code)?{code,url:'https://rul.kr/'+code}:null;
+}
+export function validateShortLinkResponse(raw){
+ let data=raw;
+ if(typeof data==='string'){
+  try{data=JSON.parse(data);}catch{data={short_url:data};}
  }
- return parsed.href;
+ const objects=[data,data?.data,data?.result].filter(x=>x&&typeof x==='object'&&!Array.isArray(x));
+ if(objects.some(x=>x.success===false||x.success==='false'||x.ok===false||x.status==='error'))
+  throw new ShortenerError('단축 서비스에서 주소 생성을 거부했습니다.','upstream_rejected',502,safeShape(data));
+ for(const obj of objects){
+  const rawCode=obj.short_code??obj.shortCode??obj.code;
+  const code=typeof rawCode==='string'?rawCode.trim():undefined;
+  let hadLink=false;
+  for(const value of [obj.short_url,obj.shortUrl,obj.shortened_url,obj.shortenedUrl,
+                       obj.short_link,obj.shortLink,obj.link,obj.url]){
+   if(typeof value!=='string'||!value.trim())continue;
+   hadLink=true;
+   const verified=trustedShortURL(value);
+   if(verified&&(code===undefined||code===verified.code))return verified.url;
+  }
+  if(hadLink)continue;
+  if(code&&CODE_PATTERN.test(code)&&(obj.success===true||obj.success==='true'||obj.ok===true))
+   return 'https://rul.kr/'+code;
+ }
+ throw new ShortenerError('단축 서비스의 응답 형식이 예상과 다릅니다.','invalid_response',502,safeShape(data));
 }
+
 const REDIRECT_CODES=new Set([301,302,307,308]);
 const MAX_REDIRECTS=2;
 function validatedEndpointRedirect(value,base){
@@ -42,8 +74,8 @@ export async function shortenOriginalURL(original,fetchImpl=fetch,timeoutMs=1500
    }
    if(response.status>=300&&response.status<400)throw new ShortenerError('단축 서비스의 응답 경로를 확인할 수 없습니다.','upstream_redirect',502);
    if(response.status===429)throw new ShortenerError('짧은 링크 요청이 많습니다. 잠시 후 다시 시도해 주세요.','rate_limited',503);
-   if(!response.ok)throw new ShortenerError('짧은 링크를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.','upstream_error',502);
-   let data;try{data=await response.json();}catch{throw new ShortenerError('단축 서비스 응답을 읽을 수 없습니다.','invalid_json',502);}
+   if(!response.ok)throw new ShortenerError('짧은 링크를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.','upstream_error',502,{httpStatus:response.status});
+   let data;try{data=await response.json();}catch{throw new ShortenerError('단축 서비스 응답이 올바른 JSON이 아닙니다.','invalid_json',502,{httpStatus:response.status,contentType:response.headers?.get('content-type')?.slice(0,80)||'unknown'});}
    return validateShortLinkResponse(data);
   }
  }catch(e){

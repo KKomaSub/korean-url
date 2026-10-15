@@ -15,6 +15,6 @@ export async function onRequestPost({request}){
   const url=displayOrigin(request.url)+'/'+slug;
   if(new URL(url).href.length>14500)throw Error('변환 경로가 서버의 주소 길이 제한을 초과합니다.');
   return json({path:slug,url});
- }catch(e){return json({error:e.message||'변환에 실패했습니다.',code:e instanceof ShortenerError?e.reason:undefined},e instanceof ShortenerError?e.status:400);}
+ }catch(e){return json({error:e.message||'변환에 실패했습니다.',code:e instanceof ShortenerError?e.reason:undefined,diagnostics:e instanceof ShortenerError?e.diagnostics:undefined},e instanceof ShortenerError?e.status:400);}
 }
 function json(o,status=200){return new Response(JSON.stringify(o),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','X-Content-Type-Options':'nosniff'}});}
