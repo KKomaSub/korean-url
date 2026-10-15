@@ -10,8 +10,17 @@ export async function onRequestPost({request}){
  try{
   const original=normalizeInputURL(data?.url);
   if(new TextEncoder().encode(original).length>4096)throw Error('원본 주소는 4,096바이트 이하로 입력해 주세요.');
-  const target=mode==='short'?await shortenOriginalURL(original):original;
-  const slug=await encodeURLv4(target);
+  // Both candidates share the same service origin, so comparing Hangul path
+  // lengths also compares the displayed and percent-encoded final URL lengths.
+  let slug;
+  if(mode==='normal')slug=await encodeURLv4(original);
+  else{
+   const [normalSlug,shortTarget]=await Promise.all([
+    encodeURLv4(original),shortenOriginalURL(original)
+   ]);
+   const shortSlug=await encodeURLv4(shortTarget);
+   slug=shortSlug.length<=normalSlug.length?shortSlug:normalSlug;
+  }
   const url=displayOrigin(request.url)+'/'+slug;
   if(new URL(url).href.length>14500)throw Error('변환 경로가 서버의 주소 길이 제한을 초과합니다.');
   return json({path:slug,url});
